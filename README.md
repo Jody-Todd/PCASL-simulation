@@ -1,6 +1,6 @@
 # PCASL-simulation
 These scripts simulate a blood proton experiencing adiabatic inversion as in pseudo-continuous arterial spin labeling. The simulations are based on [Maccotta et al., 1999](https://doi.org/10.1002/(SICI)1099-1492(199706/08)10:4/5%3C216::AID-NBM468%3E3.0.CO;2-U) and [Dai et al., 2008](https://doi.org/10.1002/mrm.21790).
 
-* The main simulation script is sim_inversion.m which is a function that takes a gradient shape, RF shape, and a sturcture of simulation parameters as input. This script is a functionalized version of pcasl_simulation.m
-* sim_inversion_call.m calls sim_inversion() for a few blood velocities and plots them. You can see that slower spins generally experience less inversion.
-* maccotta_simulation.m is the CASL simulation.
+* The main simulation script is **sim_inversion.m** which is a function that takes a gradient shape, RF shape, and a sturcture of simulation parameters as input. The simulation works by performing finite rotations of the magnetization vector **M** around the effective magnetic field in the rotating reference frame where the rotational frequency is $\omega_{RF}$. This script is a functionalized version of pcasl_simulation.m
+* **sim_inversion_call.m** creates RF and gradient waveforms and initializes simulation parameters to pass to **sim_inversion()** which is called for multiple spin velocities. The $M_z$ trajectories for each velocity are plotted as a function of time. You can see that slower spins generally experience less inversion. This script also computes labeling efficiency as a function of the maximum spin velocity within a vessel. Labeling efficiency within a vessel is computed based on the velocity-weighted average of efficiencies of individual spins having different velocities. Before computing labeling efficiency for one velocity, the longitudinal magnetization is corrected for $T_1$ decay that occurs during transit.
+* **maccotta_simulation.m** is the CASL simulation.
