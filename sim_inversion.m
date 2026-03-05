@@ -6,9 +6,14 @@ function [sim_time_vec, M_store] = sim_inversion(gz_shape, rf_shape, params)
 % (roational frequency = omega_rf).
 % 
 % Parameters:
-%   gz_shape: z-gradient waveform applied during a single RF pulse in Hz/m.
-%   rf_shape: single rf pulse in T. expected to be same size and sampling time 
-%       as gz_shape.
+%   gz_shape: z-gradient waveform applied during a single RF pulse [Hz/m].
+%       gz_shape could be a gradient waveform of a control or label 
+%       acquisition. If it is for a label acquisition, its average is
+%       expected to be 0.
+%   rf_shape: Single rf pulse [T]. Expected to be same size and sampling 
+%       time as gz_shape. rf_shape will be the same for control and label 
+%       acquisitions. The control acquisition will alternate the sign of
+%       the rf in the for loop.
 %   params: structure with fields T1 (longitudinal relaxation time of blood
 %       [s]), T2 (transverse relaxation time of blood [s]), gamma (gyromagnetic
 %       ratio [Hz/T]), v (velocity [m/s]), dt (step time [s]), sim_time (postive
@@ -29,6 +34,13 @@ v=params.v;
 t1=-params.sim_time;
 t2=params.sim_time;
 
+% check for control acquisition
+if abs(mean(gz_shape)) <= 1e-04 
+    control = true;
+else 
+    control = false;
+end
+
 sim_time_vec = t1:dt:t2;
 M_store = zeros(3,length(sim_time_vec));
 M = [0; 0; 1];
@@ -39,8 +51,13 @@ j = 1; % counter for M_store
 for t = sim_time_vec
     if i == length(gz_shape)
         i = 1;
+        
+        % if we have a control acquisition, alternate sign of rf
+        if control
+            rf_shape = -1*rf_shape;
+        end
     end
-
+    
     % Calculate Field Offsets
     freq_offset = v*gz_shape(i)*t;  % Delta Omega [Hz]
     

@@ -55,10 +55,18 @@ elseif avg_grad < mr.convert(g_ave, 'mT/m')
 end
 fprintf('average gradient: %8f', avg_grad);
 fprintf('\ng_ave: %8f \n', mr.convert(g_ave, 'mT/m'));
-%%
 
 gz_full = [gz_wav gn_wav];
-figure; plot(gz_full);
+
+% construct gradient waveform for control condition (G_ave = 0). assuming
+% that Ngz > length(gz_wav)
+gz_con = [gz_wav -gz_wav zeros(1,length(gz_full)-2*length(gz_wav))];
+
+figure; 
+subplot(211); plot(gz_full); ylabel('label condition')
+subplot(212); plot(gz_con); ylabel('control condition')
+
+%%
 
 % resample rf waveform to dt
 rf_dt = rf.t(1):params.dt:rf.t(end);
@@ -111,7 +119,7 @@ params.v=30e-02;
 params.v=50e-02;
 [sim_time_vec, M_v50] = sim_inversion(gz_full, rf_padded, params);
 params.v=100e-02;
-[sim_time_vec, M_v100] = sim_inversion(gz_full, rf_padded, params);
+[sim_time_vec, M_v100] = sim_inversion(gz_full, grf_padded, params);
 params.v=0;
 [sim_time_vec, M_v0] = sim_inversion(gz_full, rf_padded, params);
 
@@ -134,7 +142,7 @@ ylim([-1.1 1.1]);
 
 
 %% Efficiency Calculation for single velocity
-eff = get_spin_efficiency(0.2, gz_full, rf_padded, params);
+eff = get_spin_efficiency(0.2, gz_full, gz_con, rf_padded, params);
 
 %% Efficiency calculation for a vessel with a velocity distribution
 
@@ -143,7 +151,7 @@ efficiencies = zeros(1, length(max_velocities));
 params.sim_time = 2;
 
 % velocity-weighted efficieny integral
-integrand = @(v) v .* get_spin_efficiency(v, gz_full, rf_padded, params);
+integrand = @(v) v .* get_spin_efficiency(v, gz_full, gz_con, rf_padded, params);
 
 i = 1;
 for v_max = max_velocities
@@ -188,8 +196,14 @@ ylim([-1.1 1.1]);
 
 
 
-function eff = get_spin_efficiency(v, gz_shape, rf_shape, params)
+function eff = get_spin_efficiency(v, gz_lab, gz_con, rf_shape, params)
     % wrapper function for sim_inversion with specific velocity
+    % gz_lab is the gradient shape for the labeling condition. 
+    % gz_con is the gradient shape for the control condition
+    % rf shape is the same for both labeland control conditions. in the 
+    %   sim_inversion function, the amplitude of the rf is alternated
+    %   during each repetition.
+
     if v == 0
         eff = 0;
         return;
@@ -201,20 +215,22 @@ function eff = get_spin_efficiency(v, gz_shape, rf_shape, params)
     params.v = v;
     
     % run Bloch simulation
-    [~, M_store] = sim_inversion(gz_shape, rf_shape, params);
-    
+    [~, M_lab] = sim_inversion(gz_lab, rf_shape, params);
+    [~, M_con] = sim_inversion(gz_con, rf_shape, params);
+
     % correct for T1 decay after the spin crosses the labeling plane (t=0)     
     T1_decay_factor = exp(-params.sim_time / params.T1);
 
     % extract the final longitudinal magnetization
-    Mz_final = M_store(3, end);
+    Mz_lab_final = M_lab(3, end);
+    Mz_con_final = M_con(3, end);
 
     % calculate normalized efficiency (Perfect inversion = 1.0)
     % We negate Mz_final because a successful inversion results in negative magnetization.
     %eff = -(M0 + (Mz_final - M0)/T1_decay_factor); 
     %eff = (M0 - Mz_final)/(2*M0*T1_decay_factor);
-    Mz_corrected = M0 + (Mz_final - M0)/T1_decay_factor;
-    eff = (M0 - Mz_corrected)/(2*M0);
+    Mz_corrected = M0 + (Mz_lab_final - M0)/T1_decay_factor;
+    eff = (Mz_con_final - Mz_corrected)/(2*Mz_con_final);
 end
 
 
